@@ -7,6 +7,8 @@ export const metadata = {
     title: 'On-Demand Revalidation'
 };
 
+export const dynamic = 'force-dynamic';
+
 const tagName = 'randomWiki';
 const randomWikiUrl = 'https://en.wikipedia.org/api/rest_v1/page/random/summary';
 const maxExtractLength = 200;
@@ -60,8 +62,27 @@ async function RandomWikiArticle() {
         next: { revalidate: revalidateTTL, tags: [tagName] }
     });
 
+    if (!randomWiki.ok) {
+        return (
+            <Card className="max-w-2xl">
+                <h3 className="text-2xl text-neutral-900">Unable to load article</h3>
+                <p className="italic">The Wikipedia API returned status {randomWiki.status}.</p>
+            </Card>
+        );
+    }
+
+    const contentType = randomWiki.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+        return (
+            <Card className="max-w-2xl">
+                <h3 className="text-2xl text-neutral-900">Unable to load article</h3>
+                <p className="italic">Unexpected response format from the Wikipedia API.</p>
+            </Card>
+        );
+    }
+
     const content = await randomWiki.json();
-    let extract = content.extract;
+    let extract = content.extract ?? '';
     if (extract.length > maxExtractLength) {
         extract = extract.slice(0, extract.slice(0, maxExtractLength).lastIndexOf(' ')) + ' [...]';
     }
@@ -71,7 +92,7 @@ async function RandomWikiArticle() {
             <h3 className="text-2xl text-neutral-900">{content.title}</h3>
             <div className="text-lg font-bold">{content.description}</div>
             <p className="italic">{extract}</p>
-            <a target="_blank" rel="noopener noreferrer" href={content.content_urls.desktop.page}>
+            <a target="_blank" rel="noopener noreferrer" href={content.content_urls?.desktop?.page}>
                 From Wikipedia
             </a>
         </Card>
